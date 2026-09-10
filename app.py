@@ -16,43 +16,32 @@ st.set_page_config(
 # Custom CSS for Professional Styling
 st.markdown("""
 <style>
-    /* Global Styles */
     .main {
         background-color: #f8f9fa;
     }
-    
-    /* Title Styling */
     .title-text {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         color: #1E3A8A;
         font-weight: 700;
         margin-bottom: 0px;
     }
-    
     .sub-title {
         color: #4B5563;
         font-size: 16px;
         margin-bottom: 25px;
     }
-
-    /* Metric Card Customization */
     [data-testid="stMetricValue"] {
         font-size: 28px;
         font-weight: bold;
         color: #1F2937;
     }
-    
-    /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background-color: #0F172A;
         color: white;
     }
-    
     [data-testid="stSidebar"] label {
         color: #E2E8F0 !important;
     }
-    
-    /* Buttons Styling */
     .stButton>button {
         background-color: #2563EB;
         color: white;
@@ -62,7 +51,6 @@ st.markdown("""
         border: none;
         transition: all 0.3s ease;
     }
-    
     .stButton>button:hover {
         background-color: #1D4ED8;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
@@ -108,16 +96,75 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------------
-# Header & Navigation
+# Session State for Authentication (LOGIN LOGIC)
+# ---------------------------------------------------------
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = None
+if "username" not in st.session_state:
+    st.session_state["username"] = None
+
+# Hardcoded Login Credentials
+USER_CREDENTIALS = {
+    "admin": {"password": "admin123", "role": "Admin"},
+    "student": {"password": "student123", "role": "Student"}
+}
+
+def login_user(username, password):
+    if username in USER_CREDENTIALS and USER_CREDENTIALS[username]["password"] == password:
+        st.session_state["logged_in"] = True
+        st.session_state["user_role"] = USER_CREDENTIALS[username]["role"]
+        st.session_state["username"] = username
+        st.success(f"Logged in as {USER_CREDENTIALS[username]['role']}")
+        st.rerun()
+    else:
+        st.error("Invalid Username or Password!")
+
+def logout_user():
+    st.session_state["logged_in"] = False
+    st.session_state["user_role"] = None
+    st.session_state["username"] = None
+    st.rerun()
+
+# ---------------------------------------------------------
+# LOGIN PAGE DISPLAY
+# ---------------------------------------------------------
+if not st.session_state["logged_in"]:
+    st.markdown("<h1 class='title-text'>📚 Smart Library Portal Login</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='sub-title'>Please login to access the system</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.subheader("🔑 Sign In")
+        username_input = st.text_input("Username")
+        password_input = st.text_input("Password", type="password")
+        
+        if st.button("Login", use_container_width=True):
+            login_user(username_input, password_input)
+            
+        st.info("💡 **Demo Login Credentials:**\n\n- **Admin:** `admin` / `admin123`\n- **Student:** `student` / `student123`")
+    st.stop()  # Stop execution so main app doesn't run before login!
+
+# ---------------------------------------------------------
+# Header & Navigation (Main App - After Login)
 # ---------------------------------------------------------
 st.markdown("<h1 class='title-text'>📚 Smart Library Management System</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Next-Gen Digital Portal for College Libraries</p>", unsafe_allow_html=True)
+st.markdown(f"<p class='sub-title'>Welcome, <b>{st.session_state['username'].capitalize()}</b> ({st.session_state['user_role']})</p>", unsafe_allow_html=True)
 
-# Sidebar Options
+# Sidebar Options based on Role
 st.sidebar.image("https://img.icons8.com/isometric/100/book.png", width=70)
 st.sidebar.title("Navigation Panel")
-menu = ["📊 Executive Dashboard", "🔍 Catalog Search", "🔄 Book Operations (Issue/Return)", "➕ Admin Management"]
+
+if st.session_state["user_role"] == "Admin":
+    menu = ["📊 Executive Dashboard", "🔍 Catalog Search", "🔄 Book Operations (Issue/Return)", "➕ Admin Management"]
+else:
+    menu = ["🔍 Catalog Search"]  # Student can only view & search catalog!
+
 choice = st.sidebar.radio("Select Action", menu)
+
+if st.sidebar.button("🚪 Logout"):
+    logout_user()
 
 conn = get_db_connection()
 
@@ -301,4 +348,3 @@ elif choice == "➕ Admin Management":
     st.write("### 📋 Current Active Database View")
     df_all = pd.read_sql_query("SELECT * FROM books", conn)
     st.dataframe(df_all, use_container_width=True)
-    
